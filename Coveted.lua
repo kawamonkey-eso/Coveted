@@ -78,60 +78,70 @@ end
 
 local function OnFastTravelInteraction()
 	for i = 1, MAX_JOURNAL_QUESTS do
-		local questName, _, _, _, _, completed, tracked = GetJournalQuestInfo(i)
+		if IsValidQuestIndex(i) then
+			local questName, _, _, _, _, completed, tracked = GetJournalQuestInfo(i)
 
-		if tracked then
-			if questName == GetString(SI_COVETOUS_COUNTESS) then
-				if completed then
-					FastTravelToNode(255)
-				else
-					local conditionText, current, max = GetJournalQuestConditionInfo(i)
+			if tracked then
+				if questName == GetString(SI_COVETOUS_COUNTESS) then
+					if completed then
+						FastTravelToNode(255)
+					else
+						local conditionText, current, max = GetJournalQuestConditionInfo(i)
 
-					if current == max then
-						for _, nodeIndex in ipairs(wayshrines) do
-							if string.match(conditionText, GetString("SI_COVETEDWAYSHRINE", nodeIndex)) then
-								FastTravelToNode(nodeIndex)
-								return
+						if current == max then
+							for _, nodeIndex in ipairs(wayshrines) do
+								if string.match(conditionText, GetString("SI_COVETEDWAYSHRINE", nodeIndex)) then
+									FastTravelToNode(nodeIndex)
+									return
+								end
 							end
 						end
 					end
 				end
+		
+				return
 			end
-	
-			return
 		end
 	end
 end
 
-ZO_PostHook(
-	INTERACTION,
-	"PopulateChatterOption",
-	function (self, _, _, _, optionType)
-		local name = select(2, GetGameCameraInteractableActionInfo())
+local function OnQuestComplete()
+	EVENT_MANAGER:UnregisterForEvent("Coveted", EVENT_QUEST_COMPLETE)
+	EndInteraction(INTERACTION_CONVERSATION)
+end
 
-		if name == GetString(SI_COUNTESS_VIATRIX_CELETA) then
-			if optionType ~= CHATTER_GOODBYE then
-				for i = 1, 2 do
-					self:SelectChatterOptionByIndex(1)
-				end
-			end
-		elseif name == GetString(SI_KARI) then
-			if optionType == CHATTER_START_COMPLETE_QUEST or optionType == CHATTER_COMPLETE_QUEST then
+local function PopulateChatterOption(self, _, _, _, optionType)
+	local name = GetUnitName("interact")
+
+	if name == GetString(SI_COUNTESS_VIATRIX_CELETA) then
+		if optionType ~= CHATTER_GOODBYE then
+			for i = 1, 2 do
 				self:SelectChatterOptionByIndex(1)
 			end
-		elseif name == GetString(SI_TIP_BOARD) then
-			local questName = GetOfferedQuestInfo()
-
-			if string.sub(questName, 2, 17) == GetString(SI_ESTEEMED_THIEVES) then
-				for i = 1, 5 do
-					self:SelectChatterOptionByIndex(1)
-				end
-			else
-				EndInteraction(INTERACTION_QUEST)
+		end
+	elseif name == GetString(SI_KARI) then
+		if optionType == CHATTER_START_COMPLETE_QUEST or optionType == CHATTER_COMPLETE_QUEST then
+			if optionType == CHATTER_COMPLETE_QUEST then
+				EVENT_MANAGER:RegisterForEvent("Coveted", EVENT_QUEST_COMPLETE, OnQuestComplete)
 			end
+
+			self:SelectChatterOptionByIndex(1)
+		end
+	elseif name == GetString(SI_TIP_BOARD) then
+		local questName = GetOfferedQuestInfo()
+
+		if string.sub(questName, 2, 17) == GetString(SI_ESTEEMED_THIEVES) then
+			for i = 1, 5 do
+				self:SelectChatterOptionByIndex(1)
+			end
+		else
+			EndInteraction(INTERACTION_QUEST)
 		end
 	end
-)
+end
+
+ZO_PostHook(INTERACTION, "PopulateChatterOption", PopulateChatterOption)
+ZO_PostHook(GAMEPAD_INTERACTION, "PopulateChatterOption", PopulateChatterOption)
 
 EVENT_MANAGER:RegisterForEvent("Coveted", EVENT_LOOT_UPDATED, OnLootUpdated)
 EVENT_MANAGER:RegisterForEvent("Coveted", EVENT_OPEN_FENCE, OnFenceOpened)
